@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocpp-adapter"
+version = "0.1.0"
+description = "OCPP to Modbus TCP Adapter"
+requires-python = ">=3.8"
+dependencies = [
+    "websockets>=15.0.1",
+    "pymodbus>=3.9.2",
+    "python-dotenv>=1.0"
+]
+
+[project.scripts]
+ocpp-adapter = "src.ocpp_adapter:main"
