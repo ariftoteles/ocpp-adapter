@@ -65,9 +65,16 @@ class OCPPAdapter:
                     print("Warning: Could not determine path from websocket object")
             
             # Extract chargerId from query parameters
-            query_params = parse_qs(urlparse(path).query)
-            charger_id = query_params.get('chargerId', [None])[0]
+            # query_params = parse_qs(urlparse(path).query)
+            # charger_id = query_params.get('chargerId', [None])[0]
             
+            # Extract chargerId from the URL path (e.g., /{chargerId})
+            path_parts = path.strip('/').split('/')
+            if len(path_parts) == 1:
+                charger_id = path_parts[0]
+            else:
+                charger_id = None
+
             if not charger_id:
                 print("[OCPP] No chargerId provided, closing connection")
                 await websocket.close()
@@ -76,7 +83,7 @@ class OCPPAdapter:
             print(f"[OCPP] Charger connected: {charger_id}")
             
             # Connect to upstream server, passing charger_id as part of the URL
-            upstream_url = f"{self.upstream_server_url}?chargerId={charger_id}"
+            upstream_url = f"{self.upstream_server_url}/{charger_id}"
             upstream_ws = await websockets.connect(upstream_url)
 
             # Send initial message with charger_id to upstream server (optional, depending on how the server works)

@@ -43,8 +43,15 @@ class OCPPServer:
                     print("Warning: Could not determine path from websocket object")
             
             # Parse the charger ID from the path
-            query_params = parse_qs(urlparse(path).query)
-            charger_id = query_params.get('chargerId', [None])[0]
+            # query_params = parse_qs(urlparse(path).query)
+            # charger_id = query_params.get('chargerId', [None])[0]
+
+            # Extract chargerId from the URL path (e.g., /{chargerId})
+            path_parts = path.strip('/').split('/')
+            if len(path_parts) == 1:
+                charger_id = path_parts[0]
+            else:
+                charger_id = None
 
             if not charger_id:
                 print("No chargerId provided, closing connection")

@@ -9,7 +9,7 @@ from websockets import State
 class EVCharger:
     def __init__(self, charger_id, server_url):
         self.charger_id = charger_id
-        self.server_url = f"{server_url}?chargerId={charger_id}"
+        self.server_url = f"{server_url}/{charger_id}"
         self.transaction_id = None
         self.meter_interval = None
         self.pending_requests = {}
