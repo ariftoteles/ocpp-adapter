@@ -95,17 +95,31 @@ class OCPPServer:
                     "interval": 300,
                     "currentTime": datetime.utcnow().isoformat() + "Z"
                 }
+            elif action == 'Heartbeat':
+                response = {
+                    "currentTime": datetime.utcnow().isoformat() + "Z"
+                }
+            elif action == 'Authorize':
+                payload = message[3]
+                response = {
+                    "idTagInfo": {
+                        "status": "Accepted",
+                        "expiryDate": datetime.utcnow().isoformat() + "Z",
+                        "parentIdTag": payload.get('idTag', None),
+                    }
+                }
             elif action == 'StartTransaction':
                 response = {
                     "transactionId": random.randint(1, 1000),
                     "idTagInfo": {"status": "Accepted"}
                 }
-            elif action in ['Authorize', 'MeterValues' , 'StopTransaction'] :
+            elif action in ['MeterValues' , 'StopTransaction'] :
                 response = {"idTagInfo": {"status": "Accepted"}}
 
             if response:
                 await self.send_response(charger_id, message_id, response)
             else:
+                print(f"Action not supported: {action}")
                 await self.send_error(charger_id, message_id, 'NotSupported', 'Action not supported')
 
         except Exception as error:

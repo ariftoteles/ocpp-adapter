@@ -16,6 +16,7 @@ class EVCharger:
         self.is_connected = False
         self.ws = None
         self.is_charging_complete = False
+        self.heartbeat_task = None
         
         asyncio.create_task(self.connect())
 
@@ -33,8 +34,21 @@ class EVCharger:
         # Step 1: Send BootNotification when connected
         await self.send_message('BootNotification', {
             'chargePointVendor': 'Tesla',
-            'chargePointModel': 'Supercharger V3'
+            'chargePointModel': 'Supercharger V3',
+            'firmwareVersion': '1.0.0'
         })
+        # Start sending Heartbeat messages
+        # self.heartbeat_task = asyncio.create_task(self.send_heartbeat())
+
+    # async def send_heartbeat(self):
+    #     while self.is_connected:
+    #         try:
+    #             await self.send_message('Heartbeat', {})
+    #             await asyncio.sleep(5)  # Send Heartbeat every 5 seconds
+    #         except Exception as e:
+    #             print(f"[CLIENT {self.charger_id}] Error sending Heartbeat: {e}")
+    #             break
+    #     self.heartbeat_task.cancel()
 
     async def listen_for_messages(self):
         try:
@@ -113,7 +127,10 @@ class EVCharger:
                     'meterValue': [{
                         'timestamp': datetime.now(timezone.utc).isoformat(),
                         'sampledValue': [{
-                            'value': random.randint(0, 1000),
+                            'value': str(random.randint(0, 1000)),
+                            'context': 'Sample.Periodic',
+                            'format': 'Raw',
+                            'measurand': 'Energy.Active.Import.Register',
                             'unit': 'Wh'
                         }]
                     }]
