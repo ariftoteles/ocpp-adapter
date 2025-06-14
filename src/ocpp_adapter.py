@@ -1,11 +1,15 @@
 import asyncio
 import websockets
-from urllib.parse import urlparse, parse_qs
+import os
+import sys
 import json
+from urllib.parse import urlparse, parse_qs
 from pymodbus.server import StartTcpServer
 from pymodbus.datastore import ModbusServerContext, ModbusSlaveContext, ModbusSequentialDataBlock
 from pymodbus.device import ModbusDeviceIdentification
 from websockets import State
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 class OCPPAdapter:
     def __init__(self, server_port, upstream_server_url, modbus_config):
@@ -173,16 +177,61 @@ class OCPPAdapter:
         print(f"OCPP Server running on port {self.server_port}")
         await self.server.wait_closed()
 
+class ConfigChangeHandler(FileSystemEventHandler):
+    def __init__(self, restart_callback):
+        self.restart_callback = restart_callback
+
+    def on_modified(self, event):
+        if event.src_path.endswith("database.json"):
+            print("[Config] Detected change in database.json, restarting...")
+            self.restart_callback()
+
+def restart_application():
+    """Restart the application by re-executing the script."""
+    os.execv(sys.executable, ['python'] + sys.argv)
+
 async def main():
-    adapter = OCPPAdapter(
-        server_port=9221,
-        upstream_server_url='ws://localhost:9220',
-        modbus_config={
-            'host': '0.0.0.0',
-            'port': 5020
+    # Path ke file konfigurasi
+    config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'database.json')
+    config_dir = os.path.dirname(config_path)
+
+    # Baca konfigurasi dari database.json
+    try:
+        with open(config_path, 'r') as config_file:
+            config = json.load(config_file)
+        
+        # Ambil nilai konfigurasi
+        server_port = config.get('general').get('port')
+        upstream_server_url = f"ws://{config.get('uplink_forward_to', {}).get('url_forward_to', '127.0.0.1')}:{config.get('uplink_forward_to', {}).get('port_forward_to', '9220')}"
+        modbus_config = {
+            'host': config.get('uplink_to', {}).get('ip_address_uplink_to', '127.0.0.1'),
+            'port': config.get('uplink_to', {}).get('port_uplink_to', 5020)
         }
+
+        print(f"[Config] Loaded configuration: server_port={server_port}, upstream_server_url={upstream_server_url}, modbus_config={modbus_config}")
+    except Exception as e:
+        print(f"[Config] Error loading configuration: {e}")
+        return
+
+    # Inisialisasi adapter dengan konfigurasi yang dibaca
+    adapter = OCPPAdapter(
+        server_port=server_port,
+        upstream_server_url=upstream_server_url,
+        modbus_config=modbus_config
     )
-    await adapter.start_server()
+
+    # Mulai pemantauan perubahan file
+    event_handler = ConfigChangeHandler(restart_callback=restart_application)
+    observer = Observer()
+    observer.schedule(event_handler, path=config_dir, recursive=False)
+    observer.start()
+
+    try:
+        # Jalankan server
+        await adapter.start_server()
+    finally:
+        observer.stop()
+        observer.join()
 
 if __name__ == "__main__":
     asyncio.run(main())
