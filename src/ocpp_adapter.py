@@ -12,10 +12,11 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 class OCPPAdapter:
-    def __init__(self, server_port, upstream_server_url, modbus_config):
+    def __init__(self, server_port, upstream_server_url, modbus_config, data_points):
         self.server_port = server_port
         self.upstream_server_url = upstream_server_url
         self.modbus_config = modbus_config
+        self.data_points = data_points
         self.message_queues = {}
         self.registers = {
             'energy': 0,
@@ -29,9 +30,10 @@ class OCPPAdapter:
         def run_modbus_server():
             self.store = ModbusSlaveContext(
                 hr=ModbusSequentialDataBlock(0, [0] * 10))
-            self.store.setValues(3, 0, [self.registers['energy']])
-            self.store.setValues(3, 1, [self.registers['soc']])
-            self.store.setValues(3, 2, [self.registers['status']])
+            # # self.store.setValues(function_code, address, [modbus_value], unit=slave_id)
+            # self.store.setValues(3, 0, [self.registers['energy']])
+            # self.store.setValues(3, 1, [self.registers['soc']])
+            # self.store.setValues(3, 2, [self.registers['status']])
             context = ModbusServerContext(slaves=self.store, single=True)
             StartTcpServer(
                 context=context,
@@ -135,36 +137,84 @@ class OCPPAdapter:
             except json.JSONDecodeError as e:
                 print(f"[OCPP] Error decoding message: {e}")
 
-    def process_meter_values(self, message_data):
-        """Update Modbus registers from MeterValues message"""
-        try:
-            # Pastikan ada payload dengan MeterValues
-            payload = message_data[3] if len(message_data) > 3 else None
-            if payload and 'meterValue' in payload and len(payload['meterValue']) > 0:
-                # Ambil data sampel pertama
-                sampled_values = payload['meterValue'][0].get('sampledValue', [])
-                for value in sampled_values:
-                    # Cek apakah nilai yang diterima adalah untuk 'Energy' atau 'SoC'
-                    # Tentukan logika jika tidak ada 'measurand'
-                    if 'Wh' in value.get('unit', ''):  # Energi dalam Wh
-                        self.registers['energy'] = int(float(value['value']))
+    # def process_meter_values(self, message_data):
+    #     """Update Modbus registers from MeterValues message"""
+    #     try:
+    #         # Pastikan ada payload dengan MeterValues
+    #         payload = message_data[3] if len(message_data) > 3 else None
+    #         print(f"[OCPP] Processing MeterValues: {payload}")
+    #         if payload and 'meterValue' in payload and len(payload['meterValue']) > 0:
+    #             # Ambil data sampel pertama
+    #             sampled_values = payload['meterValue'][0].get('sampledValue', [])
+    #             for value in sampled_values:
+    #                 # Cek apakah nilai yang diterima adalah untuk 'Energy' atau 'SoC'
+    #                 # Tentukan logika jika tidak ada 'measurand'
+    #                 if 'Wh' in value.get('unit', ''):  # Energi dalam Wh
+    #                     self.registers['energy'] = int(float(value['value']))
 
-                    elif 'SoC' in value.get('unit', ''):  # Jika unit adalah SoC, update SoC
-                        self.registers['soc'] = int(float(value['value']))
+    #                 elif 'SoC' in value.get('unit', ''):  # Jika unit adalah SoC, update SoC
+    #                     self.registers['soc'] = int(float(value['value']))
 
-                    else:
-                        print(f"[OCPP] Unrecognized unit or measurand in MeterValues: {value}")
+    #                 else:
+    #                     print(f"[OCPP] Unrecognized unit or measurand in MeterValues: {value}")
                     
-                    self.store.setValues(3, 0, [self.registers['energy']])
-                    self.store.setValues(3, 1, [self.registers['soc']])
+    #                 self.store.setValues(3, 0, [self.registers['energy']])
+    #                 self.store.setValues(3, 1, [self.registers['soc']])
 
-                    # Tampilkan update ke register Modbus
-                    print(f"[Modbus] Registers updated - Energy: {self.registers['energy']}, SoC: {self.registers['soc']}")
+    #                 # Tampilkan update ke register Modbus
+    #                 print(f"[Modbus] Registers updated - Energy: {self.registers['energy']}, SoC: {self.registers['soc']}")
+    #         else:
+    #             print("[OCPP] No meterValue found in message.")
+    #     except Exception as e:
+    #         print(f"[OCPP] Error processing MeterValues: {e}")
+
+    def process_meter_values(self, message_data):
+        """Update Modbus registers from MeterValues message."""
+        try:
+            payload = message_data[3] if len(message_data) > 3 else None
+            print(f"[OCPP] Processing MeterValues: {payload}")
+            
+            if payload and 'meterValue' in payload and len(payload['meterValue']) > 0:
+                for meter_value in payload['meterValue']:
+                    timestamp = meter_value.get('timestamp', None)
+                    sampled_values = meter_value.get('sampledValue', [])
+                    
+                    print(f"[OCPP] Timestamp: {timestamp}, Sampled Values: {sampled_values}")
+
+                    for sampled_value in sampled_values:
+                        print(f"[OCPP] Sampled Value: {sampled_value}")
+                        measurand = sampled_value.get('measurand', None)
+                        value = sampled_value.get('value', None)
+
+                        # print(f"data_point: {self.data_points} ")
+                        # Cari data_point yang sesuai dengan measurand
+                        for data_point in self.data_points:
+                            # print(f"[Modbus] Checking data point: {data_point['ocpp_name']} for measurand: {measurand}")
+                            if data_point['ocpp_name'] == measurand and data_point['is_active']:
+                                function_code = data_point['function_code']
+                                address = data_point['address']
+                                data_type = data_point['data_type']
+
+                                # Konversi nilai berdasarkan data_type
+                                if data_type == "INT":
+                                    modbus_value = int(float(value))
+                                elif data_type == "FLOAT":
+                                    modbus_value = float(value)
+                                else:
+                                    print(f"[Modbus] Unsupported data type: {data_type}")
+                                    continue
+                                
+                                print(f"[Modbus] Processing - Address: {address}, Value: {modbus_value}, Function Code: {function_code}, Measurand: {measurand}")
+
+                                # Kirim ke Modbus
+                                self.store.setValues(function_code, address, [modbus_value])
+                                print(f"[Modbus] Sent to Modbus - Address: {address}, Value: {modbus_value}, Function Code: {function_code}")
+                            elif data_point['ocpp_name'] == measurand and not data_point['is_active']:
+                                print(f"[Modbus] Skipped inactive data point: {data_point['ocpp_name']}")
             else:
                 print("[OCPP] No meterValue found in message.")
         except Exception as e:
             print(f"[OCPP] Error processing MeterValues: {e}")
-
 
     async def start_server(self):
         """Start the WebSocket server"""
@@ -195,6 +245,11 @@ async def main():
     config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'database.json')
     config_dir = os.path.dirname(config_path)
 
+    server_port = None
+    upstream_server_url = ""
+    modbus_config = {}
+    data_points = []
+
     # Baca konfigurasi dari database.json
     try:
         with open(config_path, 'r') as config_file:
@@ -204,9 +259,10 @@ async def main():
         server_port = config.get('general').get('port')
         upstream_server_url = f"ws://{config.get('uplink_forward_to', {}).get('url_forward_to', '127.0.0.1')}:{config.get('uplink_forward_to', {}).get('port_forward_to', '9220')}"
         modbus_config = {
-            'host': config.get('uplink_to', {}).get('ip_address_uplink_to', '127.0.0.1'),
+            'host': '0.0.0.0', # defualt host untuk Modbus
             'port': config.get('uplink_to', {}).get('port_uplink_to', 5020)
         }
+        data_points = config.get('data_point', [])
 
         print(f"[Config] Loaded configuration: server_port={server_port}, upstream_server_url={upstream_server_url}, modbus_config={modbus_config}")
     except Exception as e:
@@ -215,9 +271,10 @@ async def main():
 
     # Inisialisasi adapter dengan konfigurasi yang dibaca
     adapter = OCPPAdapter(
-        server_port=server_port,
-        upstream_server_url=upstream_server_url,
-        modbus_config=modbus_config
+        server_port= server_port,
+        upstream_server_url= upstream_server_url,
+        modbus_config= modbus_config,
+        data_points= data_points
     )
 
     # Mulai pemantauan perubahan file

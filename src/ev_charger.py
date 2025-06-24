@@ -104,8 +104,8 @@ class EVCharger:
                     # Send MeterValues every 5 seconds
                     self.meter_interval = asyncio.create_task(self.send_meter_values())
 
-                    # Stop after 30 seconds
-                    await asyncio.sleep(30)
+                    # Stop after 3000 seconds
+                    await asyncio.sleep(3000)
                     if self.meter_interval:
                         self.meter_interval.cancel()
                     await self.send_message('StopTransaction', {
