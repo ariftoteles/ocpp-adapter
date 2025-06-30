@@ -137,37 +137,6 @@ class OCPPAdapter:
             except json.JSONDecodeError as e:
                 print(f"[OCPP] Error decoding message: {e}")
 
-    # def process_meter_values(self, message_data):
-    #     """Update Modbus registers from MeterValues message"""
-    #     try:
-    #         # Pastikan ada payload dengan MeterValues
-    #         payload = message_data[3] if len(message_data) > 3 else None
-    #         print(f"[OCPP] Processing MeterValues: {payload}")
-    #         if payload and 'meterValue' in payload and len(payload['meterValue']) > 0:
-    #             # Ambil data sampel pertama
-    #             sampled_values = payload['meterValue'][0].get('sampledValue', [])
-    #             for value in sampled_values:
-    #                 # Cek apakah nilai yang diterima adalah untuk 'Energy' atau 'SoC'
-    #                 # Tentukan logika jika tidak ada 'measurand'
-    #                 if 'Wh' in value.get('unit', ''):  # Energi dalam Wh
-    #                     self.registers['energy'] = int(float(value['value']))
-
-    #                 elif 'SoC' in value.get('unit', ''):  # Jika unit adalah SoC, update SoC
-    #                     self.registers['soc'] = int(float(value['value']))
-
-    #                 else:
-    #                     print(f"[OCPP] Unrecognized unit or measurand in MeterValues: {value}")
-                    
-    #                 self.store.setValues(3, 0, [self.registers['energy']])
-    #                 self.store.setValues(3, 1, [self.registers['soc']])
-
-    #                 # Tampilkan update ke register Modbus
-    #                 print(f"[Modbus] Registers updated - Energy: {self.registers['energy']}, SoC: {self.registers['soc']}")
-    #         else:
-    #             print("[OCPP] No meterValue found in message.")
-    #     except Exception as e:
-    #         print(f"[OCPP] Error processing MeterValues: {e}")
-
     def process_meter_values(self, message_data):
         """Update Modbus registers from MeterValues message."""
         try:
