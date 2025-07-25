@@ -226,7 +226,8 @@ async def main():
         
         # Ambil nilai konfigurasi
         server_port = config.get('general').get('port')
-        upstream_server_url = f"{config.get('uplink_forward_to', {}).get('url_forward_to', 'ws://127.0.0.1')}:{config.get('uplink_forward_to', {}).get('port_forward_to', '9220')}"
+        # upstream_server_url = f"{config.get('uplink_forward_to', {}).get('url_forward_to', 'ws://127.0.0.1')}:{config.get('uplink_forward_to', {}).get('port_forward_to', '9220')}"
+        upstream_server_url = f"{config.get('uplink_forward_to', {}).get('url_forward_to', 'ws://127.0.0.1:9220')}"
         modbus_config = {
             'host': '0.0.0.0', # defualt host untuk Modbus
             'port': config.get('uplink_to', {}).get('port_uplink_to', 5020)
