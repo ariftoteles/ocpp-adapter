@@ -90,12 +90,12 @@ class OCPPAdapter:
             
             # Connect to upstream server, passing charger_id as part of the URL
             upstream_url = f"{self.upstream_server_url}/{charger_id}"
-            upstream_ws = await websockets.connect(upstream_url)
+            upstream_ws = await websockets.connect(upstream_url, subprotocols=["ocpp1.6"])
 
-            # Send initial message with charger_id to upstream server (optional, depending on how the server works)
-            init_message = json.dumps({"charger_id": charger_id})
-            await upstream_ws.send(init_message)
-            print(f"[OCPP] Sent charger_id {charger_id} to upstream server")
+            # # Send initial message with charger_id to upstream server (optional, depending on how the server works)
+            # init_message = json.dumps({"charger_id": charger_id})
+            # await upstream_ws.send(init_message)
+            # print(f"[OCPP] Sent charger_id {charger_id} to upstream server")
 
             self.message_queues[charger_id] = []
 
@@ -105,6 +105,7 @@ class OCPPAdapter:
                     self.forward_messages(websocket, upstream_ws, charger_id),
                     self.forward_messages(upstream_ws, websocket, charger_id)
                 )
+
             except websockets.exceptions.ConnectionClosed:
                 print(f"[OCPP] Connection closed for charger: {charger_id}")
             finally:
@@ -117,7 +118,9 @@ class OCPPAdapter:
 
     async def forward_messages(self, source, destination, charger_id):
         """Forward messages from source to destination"""
+        print(f"Forward messages from source: {source} to destination: {destination}")
         async for message in source:
+            print(f"[OCPP] Forwarding message: {message}")
             try:
                 message_data = json.loads(message)
                 

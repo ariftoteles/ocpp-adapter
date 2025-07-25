@@ -123,6 +123,7 @@ class OCPPServer:
                 await self.send_error(charger_id, message_id, 'NotSupported', 'Action not supported')
 
         except Exception as error:
+            print(f"Message error: {error} {message}")
             message_id = message[1] if len(message) > 1 else 'unknown'
             await self.send_error(charger_id, message_id, 'FormationViolation', str(error))
 

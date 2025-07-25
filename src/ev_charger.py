@@ -22,7 +22,7 @@ class EVCharger:
 
     async def connect(self):
         try:
-            self.ws = await websockets.connect(self.server_url)
+            self.ws = await websockets.connect(self.server_url, subprotocols=["ocpp1.6"])
             self.is_connected = True
             print(f"[CLIENT {self.charger_id}] Connected to server")
             await self.on_connect()
@@ -33,8 +33,8 @@ class EVCharger:
     async def on_connect(self):
         # Step 1: Send BootNotification when connected
         await self.send_message('BootNotification', {
-            'chargePointVendor': 'Tesla',
-            'chargePointModel': 'Supercharger V3',
+            'chargePointVendor': 'Ines',
+            'chargePointModel': 'CHG-001',
             'firmwareVersion': '1.0.0'
         })
         # Start sending Heartbeat messages
@@ -76,6 +76,8 @@ class EVCharger:
             if message_type == 3:  # Handle CALLRESULT
                 _, message_id, payload = message[:3]
                 request = self.pending_requests.get(message_id)
+
+                print(f"Request pending: {request}")
                 
                 if not request:
                     return
@@ -84,14 +86,15 @@ class EVCharger:
 
                 # Step 2: After BootNotification accepted, send Authorize
                 if request['action'] == 'BootNotification':
-                    await self.send_message('Authorize', {'idTag': 'TAG_123'})
+                    await self.send_message('Authorize', {'idTag': '58310321E2687791'})
 
                 # Step 3: After Authorize success, send StartTransaction
-                if (request['action'] == 'Authorize' and 
-                    payload.get('idTagInfo', {}).get('status') == 'Accepted'):
+                # if (request['action'] == 'Authorize' and 
+                #     payload.get('idTagInfo', {}).get('status') == 'Accepted'):
+                if (request['action'] == 'Authorize'):
                     await self.send_message('StartTransaction', {
                         'connectorId': 1,
-                        'idTag': 'TAG_123',
+                        'idTag': '58310321E2687791',
                         'meterStart': 0,
                         'timestamp': datetime.now(timezone.utc).isoformat()
                     })
@@ -153,7 +156,8 @@ class EVCharger:
             print(f"[CLIENT {self.charger_id}] Cannot send message - connection not open")
 
 async def main():
-    charger = EVCharger('CHARGER_001', 'ws://localhost:9221')
+    # charger = EVCharger('CHARGER_001', 'ws://localhost:9221')
+    charger = EVCharger('58310321E2687791', 'wss://ocpp.evseadmin.com/ocpp/16j')
     # Keep the program running
     while True:
         await asyncio.sleep(1)
